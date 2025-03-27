@@ -31,7 +31,7 @@ zend_module_entry evalhook_module_entry = {
 	STANDARD_MODULE_HEADER,
 #endif
 	"evalhook",
-    NULL,
+	NULL,
 	PHP_MINIT(evalhook),
 	PHP_MSHUTDOWN(evalhook),
 	NULL,
@@ -47,30 +47,18 @@ zend_module_entry evalhook_module_entry = {
 ZEND_GET_MODULE(evalhook)
 #endif
 
-static zend_op_array *(*orig_compile_string)(zval *source_string, char *filename TSRMLS_DC);
+static zend_op_array *(*orig_compile_string)(zend_string *source_string, const char *filename, zend_compile_position pos);
 static zend_bool evalhook_hooked = 0;
 
-static zend_op_array *evalhook_compile_string(zval *source_string, char *filename TSRMLS_DC)
+static zend_op_array *evalhook_compile_string(zend_string *source_string, const char *filename, zend_compile_position pos)
 {
-	int c, len, yes;
-	char *copy;
-	
-	/* Ignore non string eval() */
-	if (Z_TYPE_P(source_string) != IS_STRING) {
-		return orig_compile_string(source_string, filename TSRMLS_CC);
-	}
-	
-	len  = Z_STRLEN_P(source_string);
-	copy = estrndup(Z_STRVAL_P(source_string), len);
-	if (len > strlen(copy)) {
-		for (c=0; c<len; c++) if (copy[c] == 0) copy[c] == '?';
-	}
-	
+	int c, yes;
+
 	printf("Script tries to evaluate the following string.\n");
 	printf("----\n");
-	printf("%s\n", copy);
+	printf("%s\n", ZSTR_VAL(source_string));
 	printf("----\nDo you want to allow execution? [y/N]\n");
-	
+
 	yes = 0;
 	while (1) {
 		c = getchar();
@@ -78,12 +66,12 @@ static zend_op_array *evalhook_compile_string(zval *source_string, char *filenam
 		if (c == 'y' || c == 'Y') {
 			yes = 1;
 		}
-    }
+	}
 
 	if (yes) {
-		return orig_compile_string(source_string, filename TSRMLS_CC);
+		return orig_compile_string(source_string, filename, pos);
 	}
-	
+
 	zend_error(E_ERROR, "evalhook: script abort due to disallowed eval()");
 }
 
